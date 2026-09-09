@@ -4,3 +4,7 @@ export type AuthUser = {
   email: string;
   status: string;
 };
+
+export type RefreshAuthUser = AuthUser & {
+  refreshToken: string;
+};

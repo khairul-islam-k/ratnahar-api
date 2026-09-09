@@ -14,9 +14,10 @@ import {
 } from 'src/database/schema/system';
 import bcrypt from 'bcrypt';
 import { and, eq } from 'drizzle-orm';
-import type { AuthUser } from './types/auth-user.type';
+import type { AuthUser, RefreshAuthUser } from './types/auth-user.type';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
+import type { JwtPayload } from './types/jwt-payload.type';
 
 type tokenPayLoad = {
   sub: string;
@@ -30,7 +31,7 @@ export class AuthService {
     private readonly db: Database,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) { }
 
   async register(dto: RegisterDto) {
     const [existingUser] = await this.db
@@ -103,18 +104,16 @@ export class AuthService {
     };
 
     const tokens = await this.generateTokenPair(payload);
-    console.log('token', tokens);
 
     // // Hash refresh token before database storage
-    const tokenHash = await bcrypt.hash(tokens.refreshToken, 12);
+    const tokenHash = await bcrypt.hash(tokens.refreshToken, 10);
 
-
-  //   await this.db
-  // .update(systemUser)
-  // .set({
-  
-  // })
-  // .where(eq(users.id, 1))
+    await this.db
+      .update(systemUser)
+      .set({
+        refreshTokenHash: tokenHash,
+      })
+      .where(eq(systemUser.id, user.id));
 
     return {
       user,
@@ -123,14 +122,71 @@ export class AuthService {
     };
   }
 
+  async refreshToken(user: RefreshAuthUser) {
+    const [existingUser] = await this.db
+      .select()
+      .from(systemUser)
+      .where(
+        and(
+          eq(systemUser.email, user.email),
+          eq(systemUser.status, SystemUserStatus.ACTIVE),
+        ),
+      );
+
+      const payload = {
+        sub: user.id,
+        email: user.email,
+      }
+
+    if (!existingUser) {
+      throw new UnauthorizedException('Invalid email account');
+    }
+
+    if (!existingUser.refreshTokenHash) {
+      throw new UnauthorizedException(
+        'Refresh token is invalid or user is logged out',
+      );
+    }
+
+    const refreshTokenMatch =
+      await bcrypt.compare(
+        user.refreshToken,
+        existingUser.refreshTokenHash,
+      );
+
+    if (!refreshTokenMatch) {
+      throw new UnauthorizedException(
+        'Invalid refresh token',
+      );
+    }
+
+      const tokens = await this.generateTokenPair(payload)
+
+      return tokens;
+
+    }
+
+  async logout(userId: string) {
+      await this.db
+        .update(systemUser)
+        .set({
+          refreshTokenHash: null,
+        })
+        .where(eq(systemUser.id, userId));
+
+      return {
+        message: 'logged out successfully',
+      };
+    }
+
   private async generateTokenPair(payload: tokenPayLoad) {
-    const accessPayload = {
+    const accessPayload: JwtPayload = {
       sub: payload.sub,
       email: payload.email,
       tokenType: 'access',
     };
 
-    const refreshPayload = {
+    const refreshPayload: JwtPayload = {
       sub: payload.sub,
       email: payload.email,
       tokenType: 'refresh',

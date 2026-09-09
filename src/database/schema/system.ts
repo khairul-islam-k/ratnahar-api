@@ -52,6 +52,8 @@ export const systemUser = pgTable(
 
     passwordHash: text('password_hash').notNull(),
 
+    refreshTokenHash: text('refresh_token_hash'),
+
     type: systemUserTypeEnum('type').notNull(),
 
     status: systemUserStatusEnum('status').notNull(),
