@@ -2,9 +2,20 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cors from 'cors';
+import { ValidationPipe } from '@nestjs/common';
+import { join } from 'path';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // for file upload
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+
+  // Serves http://localhost:3000/uploads/gallery/<file>
+  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
+  
+  // end upload
 
   const allowedOrigins = (process.env.CORS_ORIGIN ?? '')
     .split(',')

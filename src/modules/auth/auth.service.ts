@@ -12,6 +12,7 @@ import {
   SystemUserStatus,
   SystemUserType,
 } from 'src/database/schema/system';
+import { shop, ShopStatus } from 'src/database/schema/shop';
 import bcrypt from 'bcrypt';
 import { and, eq } from 'drizzle-orm';
 import type { AuthUser, RefreshAuthUser } from './types/auth-user.type';
@@ -31,7 +32,7 @@ export class AuthService {
     private readonly db: Database,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
-  ) { }
+  ) {}
 
   async register(dto: RegisterDto) {
     const [existingUser] = await this.db
@@ -50,18 +51,30 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
-    const result = await this.db
-      .insert(systemUser)
-      .values({
-        name: dto.name,
-        email: dto.email,
-        passwordHash,
-        type: SystemUserType.TENANT,
-        status: SystemUserStatus.ACTIVE,
-      })
-      .returning();
+    return this.db.transaction(async (tx) => {
+      const [tenant] = await tx
+        .insert(systemUser)
+        .values({
+          name: dto.name,
+          email: dto.email,
+          passwordHash,
+          type: SystemUserType.TENANT,
+          status: SystemUserStatus.ACTIVE,
+        })
+        .returning();
 
-    return result[0];
+      const [createdShop] = await tx
+        .insert(shop)
+        .values({
+          tenantId: tenant.id,
+          name: dto.businessName,
+          email: dto.email,
+          status: ShopStatus.ACTIVE,
+        })
+        .returning({ id: shop.id, name: shop.name, status: shop.status });
+
+      return { ...tenant, shop: createdShop };
+    });
   }
 
   async validateUser(email: string, password: string) {
@@ -90,6 +103,7 @@ export class AuthService {
       name: user.name,
       email: user.email,
       status: user.status,
+      type: user.type
     };
   }
 

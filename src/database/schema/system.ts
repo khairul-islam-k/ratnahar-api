@@ -1,10 +1,12 @@
 import {
   AnyPgColumn,
+  date,
   index,
   pgEnum,
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
@@ -118,5 +120,38 @@ export const systemUser = pgTable(
     index('system_users_status_idx').on(table.status),
     index('system_users_tenant_id_idx').on(table.tenantId),
     index('system_users_deleted_at_idx').on(table.deletedAt),
+  ],
+);
+
+export const userProfile = pgTable(
+  'user_profiles',
+  {
+    id: uuid('id').primaryKey().defaultRandom().notNull(),
+
+    userId: uuid('user_id').notNull()
+    .references(() => systemUser.id, { onDelete: 'cascade' }),
+
+    gender: varchar('gender', { length: 30 }),
+
+    photo: varchar('photo', { length: 2048 }),
+
+    dateOfBirth: date('date_of_birth', { mode: 'string' }),
+
+    address: text('address'),
+
+    city: varchar('city', { length: 100 }),
+
+    state: varchar('state', { length: 100 }),
+
+    postalCode: varchar('postal_code', { length: 30 }),
+
+    country: varchar('country', { length: 100 }),
+
+    emergencyContact: varchar('emergency_contact', { length: 50 }),
+
+    notes: text('notes'),
+  },
+  (table) => [
+    uniqueIndex('user_profiles_user_id_uidx').on(table.userId),
   ],
 );

@@ -3,6 +3,7 @@ export type AuthUser = {
   name: string;
   email: string;
   status: string;
+  type: string;
 };
 
 export type RefreshAuthUser = AuthUser & {
