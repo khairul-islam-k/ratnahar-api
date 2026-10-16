@@ -19,6 +19,7 @@ import type { AuthUser, RefreshAuthUser } from './types/auth-user.type';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
 import type { JwtPayload } from './types/jwt-payload.type';
+import { randomUUID } from 'node:crypto';
 
 type tokenPayLoad = {
   sub: string;
@@ -50,16 +51,19 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
+    const tenantId = randomUUID();
 
     return this.db.transaction(async (tx) => {
       const [tenant] = await tx
         .insert(systemUser)
         .values({
+          id: tenantId,
           name: dto.name,
           email: dto.email,
           passwordHash,
           type: SystemUserType.TENANT,
           status: SystemUserStatus.ACTIVE,
+          tenantId,
         })
         .returning();
 
@@ -103,7 +107,8 @@ export class AuthService {
       name: user.name,
       email: user.email,
       status: user.status,
-      type: user.type
+      type: user.type,
+      tenantId: user.tenantId,
     };
   }
 

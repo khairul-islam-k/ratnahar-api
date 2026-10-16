@@ -19,14 +19,6 @@ export class CreateGalleryDto {
   @IsEnum(GalleryStatus)
   status?: GalleryStatus;
 
-  @ApiPropertyOptional({
-    format: 'uuid',
-    description: 'Required only when an ADMIN creates a record for a tenant',
-  })
-  @IsOptional()
-  @IsUUID()
-  tenantId?: string;
-
   // Swagger-only field: renders a file picker. The file itself is handled by
   // Multer, not by the validated body.
   @ApiPropertyOptional({

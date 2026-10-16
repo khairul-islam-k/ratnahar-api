@@ -1,55 +1,144 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, Req, UploadedFile, BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  DefaultValuePipe,
+  Delete,
+  Get,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UploadedFile,
+  UploadedFiles,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { GalleryService } from './gallery.service';
 import { CreateGalleryDto } from './dto/create-gallery.dto';
 import { UpdateGalleryDto } from './dto/update-gallery.dto';
-import { ApiBadRequestResponse, ApiConsumes, ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import { galleryMulterOptions } from './config/multer.config';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthUser } from '../auth/types/auth-user.type';
 
-function resolveTenantId(user: any): string | undefined {
-  if (user?.type === 'TENANT') return user.id;
-  if (user?.type === 'EMPLOYEE') return user.tenantId;
-  return undefined;
-}
-
+@ApiTags('Gallery')
 @Controller('gallery')
 export class GalleryController {
-  constructor(private readonly galleryService: GalleryService) {}
+  constructor(private readonly galleryService: GalleryService) { }
 
-  @ApiTags('Gallery')
+  @Post('bulk')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Create multiple gallery items from uploaded images' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        images: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+        },
+      },
+      required: ['images'],
+    },
+  })
+  @UseInterceptors(FilesInterceptor('images', 20, galleryMulterOptions))
+  createMany(
+    @CurrentUser() user: AuthUser,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    if (!files?.length) {
+      throw new BadRequestException('At least one image is required');
+    }
+    return this.galleryService.createMany(user.tenantId, files);
+  }
+
   @Post()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Create a gallery item (image optional)' })
   @ApiConsumes('multipart/form-data')
-  @ApiCreatedResponse({ description: 'Gallery item created' })
-  @ApiBadRequestResponse({ description: 'Validation failed or invalid file' })
   @UseInterceptors(FileInterceptor('image', galleryMulterOptions))
   create(
     @Body() dto: CreateGalleryDto,
-    @Req() req: any,
+    @CurrentUser() user: AuthUser,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const tenantId = resolveTenantId(req.user) ?? dto.tenantId;
+    const tenantId = user.tenantId ? user.tenantId : '';
     if (!tenantId) throw new BadRequestException('tenantId is required');
     return this.galleryService.create(dto, tenantId, file);
   }
 
   @Get()
-  findAll() {
-    return this.galleryService.findAll();
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get paginated gallery items for the current tenant' })
+  findAll(
+    @CurrentUser() user: AuthUser,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    if (page < 1 || limit < 1) {
+      throw new BadRequestException('page and limit must be greater than 0');
+    }
+    return this.galleryService.findAll(user.tenantId, page, Math.min(limit, 100));
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.galleryService.findOne(+id);
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get one gallery item' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    return this.galleryService.findOne(id, user.tenantId);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateGalleryDto: UpdateGalleryDto) {
-    return this.galleryService.update(+id, updateGalleryDto);
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update a gallery item (send image to replace it)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @UseInterceptors(FileInterceptor('image', galleryMulterOptions))
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateGalleryDto,
+    @CurrentUser() user: AuthUser,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    return this.galleryService.update(id, dto, user.tenantId, file);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.galleryService.remove(+id);
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Delete a gallery item and its image file' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    return this.galleryService.remove(id, user.tenantId);
   }
 }

@@ -4,6 +4,7 @@ export type AuthUser = {
   email: string;
   status: string;
   type: string;
+  tenantId: string | null;
 };
 
 export type RefreshAuthUser = AuthUser & {
