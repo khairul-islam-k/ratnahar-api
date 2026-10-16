@@ -109,6 +109,7 @@ export class AuthService {
       status: user.status,
       type: user.type,
       tenantId: user.tenantId,
+      photo: user.photo,
     };
   }
 

@@ -66,6 +66,8 @@ export const systemUser = pgTable(
       mode: 'date',
     }),
 
+    photo: varchar('photo', { length: 2048 }),
+
     tenantId: uuid('tenant_id').references((): AnyPgColumn => systemUser.id, {
       onDelete: 'set null',
     }),
@@ -132,8 +134,6 @@ export const userProfile = pgTable(
     .references(() => systemUser.id, { onDelete: 'cascade' }),
 
     gender: varchar('gender', { length: 30 }),
-
-    photo: varchar('photo', { length: 2048 }),
 
     dateOfBirth: date('date_of_birth', { mode: 'string' }),
 

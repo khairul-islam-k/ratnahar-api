@@ -9,15 +9,15 @@ import { GALLERY_UPLOAD_DIR } from './config/multer.config';
 import { existsSync } from 'fs';
 import { unlink } from 'fs/promises';
 import { and, count, desc, eq } from 'drizzle-orm';
-import { paginatedResponse } from 'src/common/interceptors/response.interceptor';
+import { apiResponse, paginatedResponse } from 'src/common/interceptors/response.interceptor';
 
 @Injectable()
 export class GalleryService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: Database,
-  ) {}
-  
+  ) { }
+
   async create(
     dto: CreateGalleryDto,
     tenantId: string,
@@ -53,10 +53,10 @@ export class GalleryService {
                 0,
                 200,
               ) || 'Gallery image',
-              altText: basename(file.originalname, extname(file.originalname)).slice(
-                0,
-                200,
-              ) || 'Gallery image',
+            altText: basename(file.originalname, extname(file.originalname)).slice(
+              0,
+              200,
+            ) || 'Gallery image',
             imageUrl: `/uploads/gallery/${file.filename}`,
           })),
         )
@@ -114,7 +114,7 @@ export class GalleryService {
       .limit(1);
 
     if (!row) throw new NotFoundException('Gallery item not found');
-    return row;
+    return apiResponse(row, 'Gallery item retrieved successfully');
   }
 
   async update(
@@ -151,7 +151,9 @@ export class GalleryService {
   async remove(id: string, tenantId?: string) {
     const existing = await this.findOne(id, tenantId);
     await this.db.delete(gallery).where(eq(gallery.id, id));
-    if (existing.imageUrl) await this.removeFile(existing.imageUrl);
+    if (existing.data.imageUrl) {
+      await this.removeFile(existing.data.imageUrl);
+    }
     return { message: 'Gallery item deleted' };
   }
 

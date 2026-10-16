@@ -5,6 +5,7 @@ export type AuthUser = {
   status: string;
   type: string;
   tenantId: string | null;
+  photo: string | null;
 };
 
 export type RefreshAuthUser = AuthUser & {
