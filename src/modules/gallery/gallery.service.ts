@@ -8,7 +8,7 @@ import { basename, extname, join } from 'path';
 import { GALLERY_UPLOAD_DIR } from './config/multer.config';
 import { existsSync } from 'fs';
 import { unlink } from 'fs/promises';
-import { and, count, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, inArray } from 'drizzle-orm';
 import { apiResponse, paginatedResponse } from 'src/common/interceptors/response.interceptor';
 
 @Injectable()
@@ -155,6 +155,36 @@ export class GalleryService {
       await this.removeFile(existing.data.imageUrl);
     }
     return { message: 'Gallery item deleted' };
+  }
+
+  async removeMany(ids: string[], tenantId: string) {
+    const rows = await this.db
+      .select({ id: gallery.id, imageUrl: gallery.imageUrl })
+      .from(gallery)
+      .where(and(inArray(gallery.id, ids), eq(gallery.tenantId, tenantId)));
+
+    if (rows.length) {
+      await this.db
+        .delete(gallery)
+        .where(
+          and(
+            inArray(gallery.id, rows.map((row) => row.id)),
+            eq(gallery.tenantId, tenantId),
+          ),
+        );
+
+      await Promise.all(
+        rows
+          .filter((row) => row.imageUrl)
+          .map((row) => this.removeFile(row.imageUrl!)),
+      );
+    }
+
+    return {
+      message: 'Gallery items deleted',
+      deletedIds: rows.map((row) => row.id),
+      notFoundIds: ids.filter((id) => !rows.some((row) => row.id === id)),
+    };
   }
 
   private async removeFile(imageUrl: string) {

@@ -43,18 +43,6 @@ export class GalleryController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Create multiple gallery items from uploaded images' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        images: {
-          type: 'array',
-          items: { type: 'string', format: 'binary' },
-        },
-      },
-      required: ['images'],
-    },
-  })
   @UseInterceptors(FilesInterceptor('images', 20, galleryMulterOptions))
   createMany(
     @CurrentUser() user: AuthUser,
@@ -129,6 +117,25 @@ export class GalleryController {
     return this.galleryService.update(id, dto, user.tenantId, file);
   }
 
+  @Delete('bulk')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Delete multiple gallery items and their image files' })
+  @ApiBody({ schema: { type: 'object', required: ['ids'], properties: { ids: { type: 'array', items: { type: 'string', format: 'uuid' }, minItems: 1, maxItems: 100 } } } })
+  removeMany(
+    @Body('ids') ids: string[],
+    @CurrentUser() user: AuthUser,
+  ) {
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 100) {
+      throw new BadRequestException('ids must be an array containing 1 to 100 UUIDs');
+    }
+    if (ids.some((id) => typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))) {
+      throw new BadRequestException('ids must contain valid UUIDs');
+    }
+    return this.galleryService.removeMany([...new Set(ids)], user.tenantId);
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -141,4 +148,5 @@ export class GalleryController {
     if (!user.tenantId) throw new BadRequestException('tenantId is required');
     return this.galleryService.remove(id, user.tenantId);
   }
+
 }
