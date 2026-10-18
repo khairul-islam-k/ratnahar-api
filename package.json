@@ -12,6 +12,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "seed:admin": "tsx src/db/seeds/admin.seed.ts",
+    "seed:permissions": "tsx src/db/seeds/seed-permissions.ts",
     "delete:all": "tsx src/db/seeds/delete-all.seed.ts",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",

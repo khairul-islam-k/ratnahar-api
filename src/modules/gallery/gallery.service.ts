@@ -16,7 +16,7 @@ export class GalleryService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: Database,
-  ) { }
+  ) {}
 
   async create(
     dto: CreateGalleryDto,

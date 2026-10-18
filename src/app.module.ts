@@ -5,6 +5,8 @@ import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { GalleryModule } from './modules/gallery/gallery.module';
+import { PermissionModule } from './modules/permission/permission.module';
+import { RoleModule } from './modules/role/role.module';
 
 @Module({
   imports: [
@@ -12,6 +14,8 @@ import { GalleryModule } from './modules/gallery/gallery.module';
     DatabaseModule,
     AuthModule,
     GalleryModule,
+    PermissionModule,
+    RoleModule,
   ],
   controllers: [AppController],
   providers: [
