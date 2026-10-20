@@ -11,10 +11,25 @@ import {
 } from 'drizzle-orm/pg-core';
 import { systemUser } from './system';
 
+export const RbacFeature = {
+  Gallery: "Gallery",
+  Permission: "Permission"
+} as const;
+export type RbacFeature = (typeof RbacFeature)[keyof typeof RbacFeature];
+
 export const permissionFeatureEnum = pgEnum('permission_feature', [
   'Gallery',
   'Permission',
 ]);
+
+export const PermissionAction = {
+  read: "read",
+  create: "create",
+  update: "update",
+  delete: "delete"
+} as const;
+export type PermissionAction =
+  (typeof PermissionAction)[keyof typeof PermissionAction];
 
 export const permissionActionEnum = pgEnum('permission_action', [
   'read',

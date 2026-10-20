@@ -3,7 +3,12 @@ import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdatePermissionDto } from './dto/update-permission.dto';
 import { DATABASE_CONNECTION } from 'src/database/database.provider';
 import type { Database } from 'src/database/database.types';
-import { permissions } from 'src/database/schema/rbc-permission';
+import {
+  permissions,
+  rolePermissions,
+  userRoles,
+} from 'src/database/schema/rbc-permission';
+import { eq } from 'drizzle-orm';
 import { apiResponse } from 'src/common/interceptors/response.interceptor';
 
 @Injectable()
@@ -33,6 +38,23 @@ export class PermissionService {
   async findAll() {
     const rows = await this.db.select().from(permissions);
     return apiResponse(rows, 'Permissions retrieved successfully');
+  }
+
+  async getUserPermissions(userId: string) {
+    return this.db
+      .selectDistinct({
+        id: permissions.id,
+        featureKey: permissions.featureKey,
+        actionKey: permissions.actionKey,
+        description: permissions.description,
+      })
+      .from(userRoles)
+      .innerJoin(rolePermissions, eq(userRoles.roleId, rolePermissions.roleId))
+      .innerJoin(
+        permissions,
+        eq(rolePermissions.permissionId, permissions.id),
+      )
+      .where(eq(userRoles.userId, userId));
   }
 
   findOne(id: number) {

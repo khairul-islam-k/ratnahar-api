@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { GalleryModule } from './modules/gallery/gallery.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { RoleModule } from './modules/role/role.module';
+import { EmployeeModule } from './modules/employee/employee.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { RoleModule } from './modules/role/role.module';
     GalleryModule,
     PermissionModule,
     RoleModule,
+    EmployeeModule,
   ],
   controllers: [AppController],
   providers: [

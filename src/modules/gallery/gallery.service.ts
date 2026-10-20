@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateGalleryDto } from './dto/create-gallery.dto';
 import { UpdateGalleryDto } from './dto/update-gallery.dto';
 import { DATABASE_CONNECTION } from 'src/database/database.provider';
@@ -6,10 +11,11 @@ import type { Database } from 'src/database/database.types';
 import { gallery } from 'src/database/schema/gallery';
 import { basename, extname, join } from 'path';
 import { GALLERY_UPLOAD_DIR } from './config/multer.config';
-import { existsSync } from 'fs';
-import { unlink } from 'fs/promises';
+import { mkdir, unlink } from 'fs/promises';
 import { and, count, desc, eq, inArray } from 'drizzle-orm';
 import { apiResponse, paginatedResponse } from 'src/common/interceptors/response.interceptor';
+import { randomUUID } from 'crypto';
+import sharp from 'sharp';
 
 @Injectable()
 export class GalleryService {
@@ -23,6 +29,7 @@ export class GalleryService {
     tenantId: string,
     file?: Express.Multer.File,
   ) {
+    const filename = file ? await this.optimizeAndSaveImage(file) : null;
     try {
       const [row] = await this.db
         .insert(gallery)
@@ -31,22 +38,27 @@ export class GalleryService {
           title: dto.title,
           altText: dto.altText,
           status: dto.status,
-          imageUrl: file ? `/uploads/gallery/${file.filename}` : null,
+          imageUrl: filename ? `/uploads/gallery/${filename}` : null,
         })
         .returning();
       return row;
     } catch (error) {
-      if (file) await this.removeFile(`/uploads/gallery/${file.filename}`);
+      if (filename) await this.removeFile(filename);
       throw error;
     }
   }
 
   async createMany(tenantId: string, files: Express.Multer.File[]) {
+    const filenames: string[] = [];
     try {
+      for (const file of files) {
+        filenames.push(await this.optimizeAndSaveImage(file));
+      }
+
       return await this.db
         .insert(gallery)
         .values(
-          files.map((file) => ({
+          files.map((file, index) => ({
             tenantId,
             title:
               basename(file.originalname, extname(file.originalname)).slice(
@@ -57,15 +69,13 @@ export class GalleryService {
               0,
               200,
             ) || 'Gallery image',
-            imageUrl: `/uploads/gallery/${file.filename}`,
+            imageUrl: `/uploads/gallery/${filenames[index]}`,
           })),
         )
         .returning();
     } catch (error) {
       await Promise.all(
-        files.map((file) =>
-          this.removeFile(`/uploads/gallery/${file.filename}`),
-        ),
+        filenames.map((filename) => this.removeFile(filename)),
       );
       throw error;
     }
@@ -131,19 +141,28 @@ export class GalleryService {
       throw error;
     }
 
-    const [row] = await this.db
-      .update(gallery)
-      .set({
-        title: dto.title,
-        altText: dto.altText,
-        status: dto.status,
-        ...(file ? { imageUrl: `/uploads/gallery/${file.filename}` } : {}),
-      })
-      .where(eq(gallery.id, id))
-      .returning();
+    const filename = file ? await this.optimizeAndSaveImage(file) : null;
+    let row;
+    try {
+      [row] = await this.db
+        .update(gallery)
+        .set({
+          title: dto.title,
+          altText: dto.altText,
+          status: dto.status,
+          ...(filename ? { imageUrl: `/uploads/gallery/${filename}` } : {}),
+        })
+        .where(eq(gallery.id, id))
+        .returning();
+    } catch (error) {
+      if (filename) await this.removeFile(filename);
+      throw error;
+    }
 
     // Remove the old image after the new one is saved
-    if (file && existing.imageUrl) await this.removeFile(existing.imageUrl);
+    if (filename && existing.data.imageUrl) {
+      await this.removeFile(existing.data.imageUrl);
+    }
 
     return row;
   }
@@ -190,8 +209,31 @@ export class GalleryService {
   private async removeFile(imageUrl: string) {
     // basename() prevents path traversal
     const fullPath = join(GALLERY_UPLOAD_DIR, basename(imageUrl));
-    if (existsSync(fullPath)) {
-      await unlink(fullPath).catch(() => undefined);
+    await unlink(fullPath).catch(() => undefined);
+  }
+
+  private async optimizeAndSaveImage(file: Express.Multer.File) {
+    await mkdir(GALLERY_UPLOAD_DIR, { recursive: true });
+    const filename = `${randomUUID()}.webp`;
+    const outputPath = join(GALLERY_UPLOAD_DIR, filename);
+
+    try {
+      await sharp(file.buffer, { failOn: 'error' })
+        .rotate()
+        .resize({
+          width: 1600,
+          height: 1600,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .webp({ quality: 80, effort: 4 })
+        .toFile(outputPath);
+      return filename;
+    } catch {
+      await unlink(outputPath).catch(() => undefined);
+      throw new BadRequestException(
+        'Uploaded file is not a valid JPG, PNG or WEBP image',
+      );
     }
   }
 }

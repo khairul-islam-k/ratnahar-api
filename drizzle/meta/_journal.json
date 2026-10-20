@@ -50,6 +50,13 @@
       "when": 1792337958699,
       "tag": "0006_salty_legion",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792481531863,
+      "tag": "0007_many_shriek",
+      "breakpoints": true
     }
   ]
 }

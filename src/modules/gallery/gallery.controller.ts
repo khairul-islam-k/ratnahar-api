@@ -32,6 +32,9 @@ import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/types/auth-user.type';
+import { PermissionGuard } from '../permission/guards/permission.guard';
+import { RequirePermission } from '../permission/decorators/required-permission.decorator';
+import { PermissionAction, RbacFeature } from 'src/database/schema/rbc-permission';
 
 @ApiTags('Gallery')
 @Controller('gallery')
@@ -72,7 +75,8 @@ export class GalleryController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermission(RbacFeature.Gallery, PermissionAction.read)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get paginated gallery items for the current tenant' })
   findAll(
@@ -88,7 +92,8 @@ export class GalleryController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermission('Gallery', 'read')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get one gallery item' })
   @ApiParam({ name: 'id', format: 'uuid' })
