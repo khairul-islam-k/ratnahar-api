@@ -1,5 +1,6 @@
 import {
   index,
+  integer,
   pgEnum,
   pgTable,
   text,
@@ -33,6 +34,9 @@ export const gallery = pgTable(
     title: varchar('title', { length: 200 }).notNull(),
 
     imageUrl: text('image_url'),
+
+    // Optimized image size in bytes.
+    size: integer('size').notNull(),
 
     altText: varchar('alt_text', { length: 255 }),
 

@@ -29,7 +29,7 @@ export class GalleryService {
     tenantId: string,
     file?: Express.Multer.File,
   ) {
-    const filename = file ? await this.optimizeAndSaveImage(file) : null;
+    const optimized = file ? await this.optimizeAndSaveImage(file) : null;
     try {
       const [row] = await this.db
         .insert(gallery)
@@ -38,21 +38,23 @@ export class GalleryService {
           title: dto.title,
           altText: dto.altText,
           status: dto.status,
-          imageUrl: filename ? `/uploads/gallery/${filename}` : null,
+          imageUrl: optimized ? `/uploads/gallery/${optimized.filename}` : null,
+          size: file?.size ?? 0,
         })
         .returning();
       return row;
     } catch (error) {
-      if (filename) await this.removeFile(filename);
+      if (optimized) await this.removeFile(optimized.filename);
       throw error;
     }
   }
 
   async createMany(tenantId: string, files: Express.Multer.File[]) {
-    const filenames: string[] = [];
+
+    const optimizedImages: { filename: string; size: number }[] = [];
     try {
       for (const file of files) {
-        filenames.push(await this.optimizeAndSaveImage(file));
+        optimizedImages.push(await this.optimizeAndSaveImage(file));
       }
 
       return await this.db
@@ -69,13 +71,14 @@ export class GalleryService {
               0,
               200,
             ) || 'Gallery image',
-            imageUrl: `/uploads/gallery/${filenames[index]}`,
+            imageUrl: `/uploads/gallery/${optimizedImages[index].filename}`,
+            size: file.size,
           })),
         )
         .returning();
     } catch (error) {
       await Promise.all(
-        filenames.map((filename) => this.removeFile(filename)),
+        optimizedImages.map(({ filename }) => this.removeFile(filename)),
       );
       throw error;
     }
@@ -141,7 +144,7 @@ export class GalleryService {
       throw error;
     }
 
-    const filename = file ? await this.optimizeAndSaveImage(file) : null;
+    const optimized = file ? await this.optimizeAndSaveImage(file) : null;
     let row;
     try {
       [row] = await this.db
@@ -150,17 +153,22 @@ export class GalleryService {
           title: dto.title,
           altText: dto.altText,
           status: dto.status,
-          ...(filename ? { imageUrl: `/uploads/gallery/${filename}` } : {}),
+          ...(optimized
+            ? {
+                imageUrl: `/uploads/gallery/${optimized.filename}`,
+                size: file!.size,
+              }
+            : {}),
         })
         .where(eq(gallery.id, id))
         .returning();
     } catch (error) {
-      if (filename) await this.removeFile(filename);
+      if (optimized) await this.removeFile(optimized.filename);
       throw error;
     }
 
     // Remove the old image after the new one is saved
-    if (filename && existing.data.imageUrl) {
+    if (optimized && existing.data.imageUrl) {
       await this.removeFile(existing.data.imageUrl);
     }
 
@@ -218,7 +226,7 @@ export class GalleryService {
     const outputPath = join(GALLERY_UPLOAD_DIR, filename);
 
     try {
-      await sharp(file.buffer, { failOn: 'error' })
+      const { size } = await sharp(file.buffer, { failOn: 'error' })
         .rotate()
         .resize({
           width: 1600,
@@ -228,7 +236,7 @@ export class GalleryService {
         })
         .webp({ quality: 80, effort: 4 })
         .toFile(outputPath);
-      return filename;
+      return { filename, size };
     } catch {
       await unlink(outputPath).catch(() => undefined);
       throw new BadRequestException(
