@@ -2,14 +2,19 @@ import {
   Body,
   BadRequestException,
   Controller,
+  DefaultValuePipe,
+  Get,
+  ParseIntPipe,
   ParseArrayPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
   ApiOperation,
   ApiBody,
+  ApiQuery,
   ApiTags,
   ApiBearerAuth,
 } from '@nestjs/swagger';
@@ -25,6 +30,31 @@ import type { AuthUser } from '../auth/types/auth-user.type';
 @Controller('roles')
 export class RoleController {
   constructor(private readonly roleService: RoleService) {}
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get all roles for a tenant' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({ name: 'search', required: false, type: String, example: 'manager' })
+  findAllByTenant(
+    @CurrentUser() user: AuthUser,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('search') search?: string,
+  ) {
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    if (page < 1 || limit < 1) {
+      throw new BadRequestException('page and limit must be greater than 0');
+    }
+    return this.roleService.findAllByTenant(
+      user.tenantId,
+      page,
+      Math.min(limit, 100),
+      search?.trim(),
+    );
+  }
 
   @Post()
   @ApiOperation({ summary: 'Create a role' })

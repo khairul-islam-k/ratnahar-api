@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { inArray } from 'drizzle-orm';
+import { and, count, desc, eq, ilike, inArray } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from 'src/database/database.provider';
 import type { Database } from 'src/database/database.types';
 import {
@@ -13,7 +13,10 @@ import {
   roles,
   userRoles,
 } from 'src/database/schema/rbc-permission';
-import { apiResponse } from 'src/common/interceptors/response.interceptor';
+import {
+  apiResponse,
+  paginatedResponse,
+} from 'src/common/interceptors/response.interceptor';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { AssignPermissionDto } from './dto/assign-permissions.dto';
 import { AssignUserRoleDto } from './dto/assign-user-role.dto';
@@ -24,6 +27,37 @@ export class RoleService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: Database,
   ) {}
+
+  async findAllByTenant(
+    tenantId: string,
+    page: number,
+    limit: number,
+    search?: string,
+  ) {
+    const where = and(
+      eq(roles.tenantId, tenantId),
+      search ? ilike(roles.name, `%${search}%`) : undefined,
+    );
+    const offset = (page - 1) * limit;
+
+    const [rows, [totalResult]] = await Promise.all([
+      this.db
+        .select()
+        .from(roles)
+        .where(where)
+        .orderBy(desc(roles.createdAt))
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(roles).where(where),
+    ]);
+
+    const total = totalResult.total;
+    return paginatedResponse(
+      rows,
+      { page, limit, total, totalPages: Math.ceil(total / limit) },
+      'Roles retrieved successfully',
+    );
+  }
 
   async create(dto: CreateRoleDto) {
     const [row] = await this.db
