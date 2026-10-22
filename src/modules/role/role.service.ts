@@ -20,6 +20,7 @@ import {
 import { CreateRoleDto } from './dto/create-role.dto';
 import { AssignPermissionDto } from './dto/assign-permissions.dto';
 import { AssignUserRoleDto } from './dto/assign-user-role.dto';
+import { UpdateRoleDto } from './dto/update-role.dto';
 
 @Injectable()
 export class RoleService {
@@ -59,11 +60,22 @@ export class RoleService {
     );
   }
 
-  async create(dto: CreateRoleDto) {
+  async findOneByTenant(id: string, tenantId: string) {
+    const [row] = await this.db
+      .select()
+      .from(roles)
+      .where(and(eq(roles.id, id), eq(roles.tenantId, tenantId)))
+      .limit(1);
+
+    if (!row) throw new NotFoundException('Role not found');
+    return apiResponse(row, 'Role retrieved successfully');
+  }
+
+  async create(dto: CreateRoleDto, tenantId: string) {
     const [row] = await this.db
       .insert(roles)
       .values({
-        tenantId: dto.tenantId ?? null,
+        tenantId,
         name: dto.name,
         slug: dto.slug,
         description: dto.description,
@@ -77,6 +89,39 @@ export class RoleService {
     }
 
     return apiResponse(row, 'Role created successfully');
+  }
+
+  async update(id: string, dto: UpdateRoleDto, tenantId: string) {
+    try {
+      const [row] = await this.db
+        .update(roles)
+        .set(dto)
+        .where(and(eq(roles.id, id), eq(roles.tenantId, tenantId)))
+        .returning();
+
+      if (!row) throw new NotFoundException('Role not found');
+      return apiResponse(row, 'Role updated successfully');
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === '23505'
+      ) {
+        throw new ConflictException('A role with this tenant and slug already exists');
+      }
+      throw error;
+    }
+  }
+
+  async remove(id: string, tenantId: string) {
+    const [deletedRole] = await this.db
+      .delete(roles)
+      .where(and(eq(roles.id, id), eq(roles.tenantId, tenantId)))
+      .returning({ id: roles.id });
+
+    if (!deletedRole) throw new NotFoundException('Role not found');
+    return apiResponse({ id: deletedRole.id }, 'Role deleted successfully');
   }
 
   async assignPermissions(assignments: AssignPermissionDto[]) {

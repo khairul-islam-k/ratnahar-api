@@ -3,8 +3,12 @@ import {
   BadRequestException,
   Controller,
   DefaultValuePipe,
+  Delete,
   Get,
   ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Param,
   ParseArrayPipe,
   Post,
   Query,
@@ -15,6 +19,7 @@ import {
   ApiOperation,
   ApiBody,
   ApiQuery,
+  ApiParam,
   ApiTags,
   ApiBearerAuth,
 } from '@nestjs/swagger';
@@ -22,6 +27,7 @@ import { CreateRoleDto } from './dto/create-role.dto';
 import { RoleService } from './role.service';
 import { AssignPermissionDto } from './dto/assign-permissions.dto';
 import { AssignUserRoleDto } from './dto/assign-user-role.dto';
+import { UpdateRoleDto } from './dto/update-role.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/types/auth-user.type';
@@ -56,28 +62,54 @@ export class RoleController {
     );
   }
 
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get one role in the current tenant' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    return this.roleService.findOneByTenant(id, user.tenantId);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update a role in the current tenant' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateRoleDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    return this.roleService.update(id, dto, user.tenantId);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Delete a role in the current tenant' })
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    return this.roleService.remove(id, user.tenantId);
+  }
+
   @Post()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Create a role' })
-  @ApiCreatedResponse({
-    description: 'Role created successfully',
-    schema: {
-      example: {
-        data: {
-          id: '550e8400-e29b-41d4-a716-446655440000',
-          tenantId: null,
-          name: 'Gallery Manager',
-          slug: 'gallery-manager',
-          description: 'Can manage gallery content',
-          isSystemRole: false,
-          createdAt: '2026-10-18T12:00:00.000Z',
-          updatedAt: '2026-10-18T12:00:00.000Z',
-        },
-        message: 'Role created successfully',
-      },
-    },
-  })
-  create(@Body() dto: CreateRoleDto) {
-    return this.roleService.create(dto);
+  create(
+    @Body() dto: CreateRoleDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    return this.roleService.create(dto, user.tenantId);
   }
 
   @Post('permissions')
