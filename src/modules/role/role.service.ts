@@ -71,6 +71,17 @@ export class RoleService {
     return apiResponse(row, 'Role retrieved successfully');
   }
 
+  async getPermissionsByRoleId(roleId: string, tenantId: string) {
+    const rows = await this.db
+      .select()
+      .from(rolePermissions)
+      .where(
+        eq(rolePermissions.roleId, roleId)
+      );
+
+    return apiResponse(rows, 'Role permissions retrieved successfully');
+  }
+
   async create(dto: CreateRoleDto, tenantId: string) {
     const [row] = await this.db
       .insert(roles)

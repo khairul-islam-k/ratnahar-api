@@ -75,6 +75,19 @@ export class RoleController {
     return this.roleService.findOneByTenant(id, user.tenantId);
   }
 
+  @Get(':id/permissions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get permissions assigned to a role' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  getPermissionsByRoleId(
+    @Param('id', ParseUUIDPipe) roleId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    return this.roleService.getPermissionsByRoleId(roleId, user.tenantId);
+  }
+
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
