@@ -9,7 +9,6 @@ import {
   ParseUUIDPipe,
   Patch,
   Param,
-  ParseArrayPipe,
   Post,
   Query,
   UseGuards,
@@ -82,10 +81,8 @@ export class RoleController {
   @ApiParam({ name: 'id', format: 'uuid' })
   getPermissionsByRoleId(
     @Param('id', ParseUUIDPipe) roleId: string,
-    @CurrentUser() user: AuthUser,
   ) {
-    if (!user.tenantId) throw new BadRequestException('tenantId is required');
-    return this.roleService.getPermissionsByRoleId(roleId, user.tenantId);
+    return this.roleService.getPermissionsByRoleId(roleId);
   }
 
   @Patch(':id')
@@ -126,55 +123,28 @@ export class RoleController {
   }
 
   @Post('permissions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Assign permissions to roles in bulk' })
-  @ApiBody({ type: [AssignPermissionDto] })
-  @ApiCreatedResponse({
-    description: 'Permissions assigned to roles successfully',
-    schema: {
-      example: {
-        data: [
-          {
-            id: '550e8400-e29b-41d4-a716-446655440002',
-            roleId: '550e8400-e29b-41d4-a716-446655440000',
-            permissionId: '550e8400-e29b-41d4-a716-446655440001',
-          },
-        ],
-        message: 'Permissions assigned to roles successfully',
-      },
-    },
-  })
+  @ApiBody({ type: AssignPermissionDto })
   assignPermissions(
-    @Body(new ParseArrayPipe({ items: AssignPermissionDto }))
-    assignments: AssignPermissionDto[],
+    @Body() dto: AssignPermissionDto,
   ) {
-    if (!assignments.length) {
+    if (!dto.data?.length) {
       throw new BadRequestException('At least one assignment is required');
     }
-    return this.roleService.assignPermissions(assignments);
+    return this.roleService.assignPermissions(dto);
   }
 
-  @Post('users')
+  @Post('users/:userId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Assign a role to a user' })
   @ApiBody({ type: AssignUserRoleDto })
-  @ApiCreatedResponse({
-    description: 'Role assigned to user successfully',
-    schema: {
-      example: {
-        data: {
-          id: '550e8400-e29b-41d4-a716-446655440002',
-          userId: '550e8400-e29b-41d4-a716-446655440000',
-          roleId: '550e8400-e29b-41d4-a716-446655440001',
-        },
-        message: 'Role assigned to user successfully',
-      },
-    },
-  })
   assignRoleToUser(
     @Body() dto: AssignUserRoleDto,
-    @CurrentUser() user: AuthUser,
+    @Param('userId', ParseUUIDPipe) userId: string,
   ) {
-    return this.roleService.assignRoleToUser(dto, user.id);
+    return this.roleService.assignRoleToUser(dto, userId);
   }
 }

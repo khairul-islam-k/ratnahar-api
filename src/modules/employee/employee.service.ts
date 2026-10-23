@@ -28,8 +28,10 @@ import {
   isNull,
   ne,
   or,
+  sql,
   type SQL,
 } from 'drizzle-orm';
+import { roles, userRoles } from 'src/database/schema/rbc-permission';
 
 @Injectable()
 export class EmployeeService {
@@ -108,12 +110,34 @@ export class EmployeeService {
           type: systemUser.type,
           status: systemUser.status,
           photo: systemUser.photo,
-          tenantId: systemUser.tenantId,
-          createdAt: systemUser.createdAt,
-          updatedAt: systemUser.updatedAt,
+          roles: sql<{
+            id: string;
+            name: string;
+            slug: string;
+            description: string | null;
+            isSystemRole: boolean;
+          } | null>`json_agg(json_build_object(
+            'id', ${roles.id},
+            'name', ${roles.name},
+            'slug', ${roles.slug},
+            'description', ${roles.description},
+            'isSystemRole', ${roles.isSystemRole}
+          )) filter (where ${roles.id} is not null) -> 0`,
         })
         .from(systemUser)
+        .leftJoin(userRoles, eq(userRoles.userId, systemUser.id))
+        .leftJoin(roles, eq(roles.id, userRoles.roleId))
         .where(where)
+        .groupBy(
+          systemUser.id,
+          systemUser.name,
+          systemUser.email,
+          systemUser.phone,
+          systemUser.type,
+          systemUser.status,
+          systemUser.photo,
+          systemUser.createdAt,
+        )
         .orderBy(desc(systemUser.createdAt))
         .limit(options.limit)
         .offset(offset),

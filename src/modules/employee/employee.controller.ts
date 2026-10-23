@@ -23,6 +23,7 @@ import type { AuthUser } from '../auth/types/auth-user.type';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -99,6 +100,11 @@ export class EmployeeController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Update an employee status for the authenticated tenant' })
   @ApiParam({ name: 'id', type: String, format: 'uuid', description: 'Employee UUID' })
+  @ApiBody({ type: UpdateEmployeeStatusDto })
+  @ApiOkResponse({ description: 'Employee status updated successfully' })
+  @ApiBadRequestResponse({ description: 'Invalid employee UUID, status, or missing tenant' })
+  @ApiNotFoundResponse({ description: 'Employee not found in this tenant' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token' })
   updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateEmployeeStatusDto,
@@ -111,7 +117,14 @@ export class EmployeeController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateEmployeeDto: UpdateEmployeeDto, @CurrentUser() user: AuthUser) {
+  @ApiOperation({ summary: 'Update an employee in the authenticated tenant' })
+  @ApiParam({ name: 'id', type: String, format: 'uuid', description: 'Employee UUID' })
+  @ApiBody({ type: UpdateEmployeeDto })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateEmployeeDto: UpdateEmployeeDto,
+    @CurrentUser() user: AuthUser,
+  ) {
     if (!user.tenantId) throw new BadRequestException('tenantId is required');
     return this.employeeService.update(id, updateEmployeeDto, user.tenantId, user.id);
   }
@@ -119,7 +132,12 @@ export class EmployeeController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+  @ApiOperation({ summary: 'Delete an employee from the authenticated tenant' })
+  @ApiParam({ name: 'id', type: String, format: 'uuid', description: 'Employee UUID' })
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
     if (!user.tenantId) throw new BadRequestException('tenantId is required');
     return this.employeeService.remove(id, user.tenantId, user.id);
   }

@@ -71,7 +71,7 @@ export class RoleService {
     return apiResponse(row, 'Role retrieved successfully');
   }
 
-  async getPermissionsByRoleId(roleId: string, tenantId: string) {
+  async getPermissionsByRoleId(roleId: string) {
     const rows = await this.db
       .select()
       .from(rolePermissions)
@@ -135,31 +135,32 @@ export class RoleService {
     return apiResponse({ id: deletedRole.id }, 'Role deleted successfully');
   }
 
-  async assignPermissions(assignments: AssignPermissionDto[]) {
-    const roleIds = [...new Set(assignments.map(({ roleId }) => roleId))];
+  async assignPermissions(dto: AssignPermissionDto) {
     const permissionIds = [
-      ...new Set(assignments.map(({ permissionId }) => permissionId)),
+      ...new Set(dto.data.map(({ permissionId }) => permissionId)),
     ];
 
-    const [existingRoles, existingPermissions] = await Promise.all([
-      this.db
-        .select({ id: roles.id })
-        .from(roles)
-        .where(inArray(roles.id, roleIds)),
-      this.db
-        .select({ id: permissions.id })
-        .from(permissions)
-        .where(inArray(permissions.id, permissionIds)),
-    ]);
+    const [existingRole] = await this.db
+      .select({ id: roles.id })
+      .from(roles)
+      .where(eq(roles.id, dto.roleId))
+      .limit(1);
 
-    const existingRoleIds = new Set(existingRoles.map(({ id }) => id));
-    const missingRoleIds = roleIds.filter((id) => !existingRoleIds.has(id));
-    if (missingRoleIds.length) {
+    if (!existingRole) {
       throw new NotFoundException({
-        message: 'One or more roles were not found',
-        missingRoleIds,
+        message: 'Role was not found',
+        roleId: dto.roleId,
       });
     }
+
+    const existingPermissions = permissionIds.length
+      ? await this.db
+          .select({ id: permissions.id })
+          .from(permissions)
+          .where(inArray(permissions.id, permissionIds))
+      : [];
+
+      console.log('permission', existingPermissions);
 
     const existingPermissionIds = new Set(
       existingPermissions.map(({ id }) => id),
@@ -174,11 +175,19 @@ export class RoleService {
       });
     }
 
+    const myUserPermissions = await this.getPermissionsByRoleId(dto.roleId);
+
+    if (myUserPermissions.data.length) {
+      await this.db
+      .delete(rolePermissions)
+      .where(eq(rolePermissions.roleId, dto.roleId))
+    }
+
     const assignedRows = await this.db
       .insert(rolePermissions)
       .values(
-        assignments.map(({ roleId, permissionId }) => ({
-          roleId,
+        dto.data.map(({ permissionId }) => ({
+          roleId: dto.roleId,
           permissionId,
         })),
       )
@@ -201,6 +210,17 @@ export class RoleService {
         message: 'Role was not found',
         roleId: dto.roleId,
       });
+    }
+
+    const myRoles = await this.db
+    .select()
+    .from(userRoles)
+    .where(eq(userRoles.userId, userId));
+
+    if (myRoles.length) {
+      await this.db
+      .delete(userRoles)
+      .where(eq(userRoles.userId, userId))
     }
 
     const [assignedRow] = await this.db
