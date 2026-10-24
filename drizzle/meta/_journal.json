@@ -71,6 +71,20 @@
       "when": 1792512698012,
       "tag": "0009_wild_wild_child",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792814400000,
+      "tag": "0010_add_employees_permission_feature",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792843669653,
+      "tag": "0011_organic_hydra",
+      "breakpoints": true
     }
   ]
 }

@@ -13,13 +13,15 @@ import { systemUser } from './system';
 
 export const RbacFeature = {
   Gallery: "Gallery",
-  Permission: "Permission"
+  Permission: "Permission",
+  Employees: "Employees",
 } as const;
 export type RbacFeature = (typeof RbacFeature)[keyof typeof RbacFeature];
 
 export const permissionFeatureEnum = pgEnum('permission_feature', [
   'Gallery',
   'Permission',
+  'Employees',
 ]);
 
 export const PermissionAction = {

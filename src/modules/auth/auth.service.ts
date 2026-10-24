@@ -127,13 +127,7 @@ export class AuthService {
 
     const tokens = await this.generateTokenPair(payload);
 
-
-    const permission = user.type === "TENANT" ? await this.permissionService.findAll() :
-    await this.permissionService.getUserPermissions(user.id);
-
-
-
-    console.log('permission', permission, user);
+    const permission = await this.permissionService.myPermission(user);
 
     // // Hash refresh token before database storage
     const tokenHash = await bcrypt.hash(tokens.refreshToken, 10);
@@ -147,6 +141,7 @@ export class AuthService {
 
     return {
       user,
+      permission: permission?.data,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
     };

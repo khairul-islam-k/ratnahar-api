@@ -18,6 +18,10 @@ const rows = [
   { featureKey: 'Gallery', actionKey: 'create', description: 'Upload gallery images' },
   { featureKey: 'Gallery', actionKey: 'update', description: 'Edit gallery images' },
   { featureKey: 'Gallery', actionKey: 'delete', description: 'Delete gallery images' },
+  { featureKey: 'Employees', actionKey: 'read', description: 'View employees' },
+  { featureKey: 'Employees', actionKey: 'create', description: 'Create employees' },
+  { featureKey: 'Employees', actionKey: 'update', description: 'Edit employees and update their status' },
+  { featureKey: 'Employees', actionKey: 'delete', description: 'Delete employees' },
 ] as const;
 
 async function seedPermissions() {

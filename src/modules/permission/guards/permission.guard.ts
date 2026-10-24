@@ -35,7 +35,7 @@ export class PermissionGuard implements CanActivate {
     
 
 
-    const hasPermission = permissions.some(
+    const hasPermission = permissions.data.some(
       (permission) =>
         permission.featureKey === featureKey &&
         permission.actionKey === actionKey,

@@ -10,13 +10,15 @@ import {
 } from 'src/database/schema/rbc-permission';
 import { eq } from 'drizzle-orm';
 import { apiResponse } from 'src/common/interceptors/response.interceptor';
+import type { AuthUser } from '../auth/types/auth-user.type';
+import { SystemUserType } from 'src/database/schema/system';
 
 @Injectable()
 export class PermissionService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: Database,
-  ) {}
+  ) { }
   async create(createPermissionDto: CreatePermissionDto) {
     const [row] = await this.db
       .insert(permissions)
@@ -40,8 +42,16 @@ export class PermissionService {
     return apiResponse(rows, 'Permissions retrieved successfully');
   }
 
+  async myPermission(user: AuthUser) {
+    const permission =
+      user.type === SystemUserType.TENANT
+        ? await this.findAll()
+        : await this.getUserPermissions(user.id);
+    return permission;
+  }
+
   async getUserPermissions(userId: string) {
-    return this.db
+    const rows = await this.db
       .selectDistinct({
         id: permissions.id,
         featureKey: permissions.featureKey,
@@ -55,6 +65,8 @@ export class PermissionService {
         eq(rolePermissions.permissionId, permissions.id),
       )
       .where(eq(userRoles.userId, userId));
+
+    return apiResponse(rows, 'User permissions retrieved successfully');
   }
 
   findOne(id: number) {

@@ -1,13 +1,26 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { PermissionService } from './permission.service';
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdatePermissionDto } from './dto/update-permission.dto';
 import {
   ApiCreatedResponse,
-  ApiOkResponse,
+  ApiBearerAuth,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthUser } from '../auth/types/auth-user.type';
+import { SystemUserType } from 'src/database/schema/system';
 
 @ApiTags('Permission')
 @Controller('permission')
@@ -38,6 +51,14 @@ export class PermissionController {
   @ApiOperation({ summary: 'Get all permissions' })
   findAll() {
     return this.permissionService.findAll();
+  }
+
+  @Get('my-permissions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get permissions for the authenticated user' })
+  myPermissions(@CurrentUser() user: AuthUser) {
+    return this.permissionService.myPermission(user);
   }
 
   @Get(':id')
