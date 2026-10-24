@@ -20,6 +20,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
 import type { JwtPayload } from './types/jwt-payload.type';
 import { randomUUID } from 'node:crypto';
+import { PermissionService } from '../permission/permission.service';
 
 type tokenPayLoad = {
   sub: string;
@@ -33,6 +34,7 @@ export class AuthService {
     private readonly db: Database,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
+    private readonly permissionService: PermissionService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -124,6 +126,14 @@ export class AuthService {
     };
 
     const tokens = await this.generateTokenPair(payload);
+
+
+    const permission = user.type === "TENANT" ? await this.permissionService.findAll() :
+    await this.permissionService.getUserPermissions(user.id);
+
+
+
+    console.log('permission', permission, user);
 
     // // Hash refresh token before database storage
     const tokenHash = await bcrypt.hash(tokens.refreshToken, 10);

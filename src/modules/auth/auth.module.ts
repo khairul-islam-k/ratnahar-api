@@ -7,9 +7,15 @@ import { JwtModule } from '@nestjs/jwt';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+import { PermissionModule } from '../permission/permission.module';
 
 @Module({
-  imports: [DatabaseModule, PassportModule, JwtModule.register({})],
+  imports: [
+    DatabaseModule, 
+    PassportModule,
+    JwtModule.register({}),
+    PermissionModule
+  ],
   controllers: [AuthController],
   providers: [AuthService, LocalStrategy, JwtStrategy, JwtRefreshStrategy],
 })
