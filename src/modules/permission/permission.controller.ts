@@ -48,6 +48,8 @@ export class PermissionController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get all permissions' })
   findAll() {
     return this.permissionService.findAll();
@@ -59,20 +61,5 @@ export class PermissionController {
   @ApiOperation({ summary: 'Get permissions for the authenticated user' })
   myPermissions(@CurrentUser() user: AuthUser) {
     return this.permissionService.myPermission(user);
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.permissionService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updatePermissionDto: UpdatePermissionDto) {
-    return this.permissionService.update(+id, updatePermissionDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.permissionService.remove(+id);
   }
 }

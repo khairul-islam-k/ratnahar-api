@@ -18,7 +18,7 @@ export class PermissionService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: Database,
-  ) { }
+  ) {}
   async create(createPermissionDto: CreatePermissionDto) {
     const [row] = await this.db
       .insert(permissions)
@@ -67,17 +67,5 @@ export class PermissionService {
       .where(eq(userRoles.userId, userId));
 
     return apiResponse(rows, 'User permissions retrieved successfully');
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} permission`;
-  }
-
-  update(id: number, updatePermissionDto: UpdatePermissionDto) {
-    return `This action updates a #${id} permission`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} permission`;
   }
 }
