@@ -1,11 +1,15 @@
 import {
   Body,
+  BadRequestException,
   Controller,
+  DefaultValuePipe,
   Get,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  ParseIntPipe,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -14,6 +18,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { CreatePackageDto } from './dto/create-package.dto';
@@ -43,10 +48,36 @@ export class PackageController {
   @UseGuards(JwtAuthGuard, PermissionUserTypeGuard)
   @ApiBearerAuth('access-token')
   @RequireUserType(SystemUserType.ADMIN)
-  @ApiOperation({ summary: 'Get all packages with their modules and limits' })
-  @ApiOkResponse({ description: 'Packages retrieved successfully' })
-  findAll() {
-    return this.packageService.findAll();
+  @ApiOperation({ summary: 'Get all packages with their modules and limits'})
+  @ApiOkResponse({ description: 'Packages retrieved successfully'})
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search package name, slug, or description' })
+  @ApiQuery({ name: 'status', required: false, enum: ['active', 'inactive'] })
+  @ApiQuery({ name: 'pricingType', required: false, enum: ['fixed', 'custom'] })
+  findAll(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('pricingType') pricingType?: string,
+  ) {
+    if (page < 1 || limit < 1) {
+      throw new BadRequestException('page and limit must be greater than 0');
+    }
+    if (status && !['active', 'inactive'].includes(status)) {
+      throw new BadRequestException('status must be active or inactive');
+    }
+    if (pricingType && !['fixed', 'custom'].includes(pricingType)) {
+      throw new BadRequestException('pricingType must be fixed or custom');
+    }
+    return this.packageService.findAll(
+      page,
+      Math.min(limit, 100),
+      search?.trim() || undefined,
+      status as 'active' | 'inactive' | undefined,
+      pricingType as 'fixed' | 'custom' | undefined,
+    );
   }
 
   @Get(':id')

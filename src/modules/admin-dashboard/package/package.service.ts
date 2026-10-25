@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { eq, inArray } from 'drizzle-orm';
+import { and, count, eq, ilike, inArray, or, asc } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from 'src/database/database.provider';
 import type { Database } from 'src/database/database.types';
 import {
@@ -12,7 +12,10 @@ import {
   packageModules,
   packages,
 } from 'src/database/schema/subscription';
-import { apiResponse } from 'src/common/interceptors/response.interceptor';
+import {
+  apiResponse,
+  paginatedResponse,
+} from 'src/common/interceptors/response.interceptor';
 import { CreatePackageDto } from './dto/create-package.dto';
 import { UpdatePackageDto } from './dto/update-package.dto';
 
@@ -74,10 +77,42 @@ export class PackageService {
     return apiResponse(result, 'Package created successfully');
   }
 
-  async findAll() {
-    const packageRows = await this.db.select().from(packages);
+  async findAll(
+    page: number,
+    limit: number,
+    search?: string,
+    status?: 'active' | 'inactive',
+    pricingType?: 'fixed' | 'custom',
+  ) {
+    const where = and(
+      search
+        ? or(
+            ilike(packages.name, `%${search}%`),
+            ilike(packages.slug, `%${search}%`),
+            ilike(packages.description, `%${search}%`),
+          )
+        : undefined,
+      status ? eq(packages.status, status) : undefined,
+      pricingType ? eq(packages.pricingType, pricingType) : undefined,
+    );
+    const offset = (page - 1) * limit;
+    const [packageRows, [totalResult]] = await Promise.all([
+      this.db
+        .select()
+        .from(packages)
+        .where(where)
+        .orderBy(asc(packages.name))
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(packages).where(where),
+    ]);
+
     if (packageRows.length === 0) {
-      return apiResponse([], 'Packages retrieved successfully');
+      return paginatedResponse(
+        [],
+        { page, limit, total: totalResult.total, totalPages: Math.ceil(totalResult.total / limit) },
+        'Packages retrieved successfully',
+      );
     }
 
     const packageIds = packageRows.map((packageRow) => packageRow.id);
@@ -98,7 +133,16 @@ export class PackageService {
       limits: limitRows.filter((limit) => limit.packageId === packageRow.id),
     }));
 
-    return apiResponse(result, 'Packages retrieved successfully');
+    return paginatedResponse(
+      result,
+      {
+        page,
+        limit,
+        total: totalResult.total,
+        totalPages: Math.ceil(totalResult.total / limit),
+      },
+      'Packages retrieved successfully',
+    );
   }
 
   async findOne(id: string) {

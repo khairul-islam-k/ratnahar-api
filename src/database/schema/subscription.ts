@@ -24,7 +24,10 @@ export const packageStatusEnum = pgEnum('package_status', [
   'inactive',
 ]);
 
-export const billingCycleEnum = pgEnum('billing_cycle', ['monthly', 'yearly']);
+export const billingCycleEnum = pgEnum('billing_cycle', [
+  'monthly',
+  'yearly',
+]);
 
 export const subscriptionStatusEnum = pgEnum('subscription_status', [
   'active',
