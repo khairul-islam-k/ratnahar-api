@@ -245,4 +245,32 @@ export class PackageService {
 
     return apiResponse(result, 'Package updated successfully');
   }
+
+  async remove(id: string) {
+    try {
+      const [deletedPackage] = await this.db
+        .delete(packages)
+        .where(eq(packages.id, id))
+        .returning({ id: packages.id });
+
+      if (!deletedPackage) throw new NotFoundException('Package not found');
+
+      return apiResponse(
+        { id: deletedPackage.id },
+        'Package deleted successfully',
+      );
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === '23503'
+      ) {
+        throw new ConflictException(
+          'Package cannot be deleted because it is used by a subscription',
+        );
+      }
+      throw error;
+    }
+  }
 }

@@ -3,6 +3,7 @@ import {
   BadRequestException,
   Controller,
   DefaultValuePipe,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -100,5 +101,16 @@ export class PackageController {
   @ApiOkResponse({ description: 'Package updated successfully' })
   update(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdatePackageDto) {
     return this.packageService.update(id, dto);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, PermissionUserTypeGuard)
+  @ApiBearerAuth('access-token')
+  @RequireUserType(SystemUserType.ADMIN)
+  @ApiOperation({ summary: 'Delete a package' })
+  @ApiParam({ name: 'id', description: 'Package UUID' })
+  @ApiOkResponse({ description: 'Package deleted successfully' })
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.packageService.remove(id);
   }
 }

@@ -8,8 +8,8 @@ import { GalleryModule } from './modules/gallery/gallery.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { RoleModule } from './modules/role/role.module';
 import { EmployeeModule } from './modules/employee/employee.module';
-import { SubscriptionModule } from './modules/admin-dashboard/subscription/subscription.module';
 import { PackageModule } from './modules/admin-dashboard/package/package.module';
+import { TenantModule } from './modules/admin-dashboard/tenant/tenant.module';
 
 @Module({
   imports: [
@@ -20,8 +20,8 @@ import { PackageModule } from './modules/admin-dashboard/package/package.module'
     PermissionModule,
     RoleModule,
     EmployeeModule,
-    SubscriptionModule,
     PackageModule,
+    TenantModule,
   ],
   controllers: [AppController],
   providers: [
