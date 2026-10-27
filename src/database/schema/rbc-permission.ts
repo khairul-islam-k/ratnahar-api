@@ -15,13 +15,15 @@ export const RbacFeature = {
   Gallery: "Gallery",
   Permission: "Permission",
   Employees: "Employees",
+  BusinessManagement: "Business Management",
 } as const;
 export type RbacFeature = (typeof RbacFeature)[keyof typeof RbacFeature];
 
 export const permissionFeatureEnum = pgEnum('permission_feature', [
-  'Gallery',
-  'Permission',
-  'Employees',
+  RbacFeature.Gallery,
+  RbacFeature.Permission,
+  RbacFeature.Employees,
+  RbacFeature.BusinessManagement,
 ]);
 
 export const PermissionAction = {

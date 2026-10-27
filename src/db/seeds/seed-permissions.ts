@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { sql } from 'drizzle-orm';
-import { permissions } from 'src/database/schema/rbc-permission';
+import { permissions, RbacFeature } from 'src/database/schema/rbc-permission';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -14,14 +14,18 @@ const pool = new Pool({ connectionString: databaseUrl });
 const db = drizzle(pool);
 
 const rows = [
-  { featureKey: 'Gallery', actionKey: 'read', description: 'View gallery images' },
-  { featureKey: 'Gallery', actionKey: 'create', description: 'Upload gallery images' },
-  { featureKey: 'Gallery', actionKey: 'update', description: 'Edit gallery images' },
-  { featureKey: 'Gallery', actionKey: 'delete', description: 'Delete gallery images' },
-  { featureKey: 'Employees', actionKey: 'read', description: 'View employees' },
-  { featureKey: 'Employees', actionKey: 'create', description: 'Create employees' },
-  { featureKey: 'Employees', actionKey: 'update', description: 'Edit employees and update their status' },
-  { featureKey: 'Employees', actionKey: 'delete', description: 'Delete employees' },
+  { featureKey: RbacFeature.Gallery, actionKey: 'read', description: 'View gallery images' },
+  { featureKey: RbacFeature.Gallery, actionKey: 'create', description: 'Upload gallery images' },
+  { featureKey: RbacFeature.Gallery, actionKey: 'update', description: 'Edit gallery images' },
+  { featureKey: RbacFeature.Gallery, actionKey: 'delete', description: 'Delete gallery images' },
+  { featureKey: RbacFeature.Employees, actionKey: 'read', description: 'View employees' },
+  { featureKey: RbacFeature.Employees, actionKey: 'create', description: 'Create employees' },
+  { featureKey: RbacFeature.Employees, actionKey: 'update', description: 'Edit employees and update their status' },
+  { featureKey: RbacFeature.Employees, actionKey: 'delete', description: 'Delete employees' },
+  { featureKey: RbacFeature.BusinessManagement, actionKey: 'read', description: 'View business management' },
+  { featureKey: RbacFeature.BusinessManagement, actionKey: 'create', description: 'Create business management' },
+  { featureKey: RbacFeature.BusinessManagement, actionKey: 'update', description: 'Update business management' },
+  { featureKey: RbacFeature.BusinessManagement, actionKey: 'delete', description: 'Delete business management' },
 ] as const;
 
 async function seedPermissions() {
