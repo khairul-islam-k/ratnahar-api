@@ -10,6 +10,7 @@ import { RoleModule } from './modules/role/role.module';
 import { EmployeeModule } from './modules/employee/employee.module';
 import { PackageModule } from './modules/admin-dashboard/package/package.module';
 import { TenantModule } from './modules/admin-dashboard/tenant/tenant.module';
+import { SubscriptionModule } from './modules/tenant-dashboard/subscription/subscription.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { TenantModule } from './modules/admin-dashboard/tenant/tenant.module';
     EmployeeModule,
     PackageModule,
     TenantModule,
+    SubscriptionModule,
   ],
   controllers: [AppController],
   providers: [

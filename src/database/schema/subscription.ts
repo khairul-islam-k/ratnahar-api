@@ -12,6 +12,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
 import { systemUser } from './system';
 
 export const packagePricingTypeEnum = pgEnum('package_pricing_type', [
@@ -71,6 +72,17 @@ export const packageModules = pgTable(
     ),
   ],
 );
+
+export const packagesRelations = relations(packages, ({ many }) => ({
+  modules: many(packageModules),
+}));
+
+export const packageModulesRelations = relations(packageModules, ({ one }) => ({
+  package: one(packages, {
+    fields: [packageModules.packageId],
+    references: [packages.id],
+  }),
+}));
 
 export const packageLimits = pgTable(
   'package_limits',
