@@ -11,6 +11,7 @@ import { EmployeeModule } from './modules/employee/employee.module';
 import { PackageModule } from './modules/admin-dashboard/package/package.module';
 import { TenantModule } from './modules/admin-dashboard/tenant/tenant.module';
 import { SubscriptionModule } from './modules/tenant-dashboard/subscription/subscription.module';
+import { PaymentGatewayModule } from './modules/payment_gateway/payment_gateway.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SubscriptionModule } from './modules/tenant-dashboard/subscription/subs
     PackageModule,
     TenantModule,
     SubscriptionModule,
+    PaymentGatewayModule,
   ],
   controllers: [AppController],
   providers: [
