@@ -28,9 +28,6 @@ export class PaymentGatewayCredentialsDto {
 }
 
 export class CreatePaymentGatewayDto {
-  @ApiProperty({ format: 'uuid' })
-  @IsUUID()
-  tenantId!: string;
 
   @ApiProperty({ format: 'uuid' })
   @IsUUID()

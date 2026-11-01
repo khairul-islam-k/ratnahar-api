@@ -1,20 +1,39 @@
-import { Body, Controller, Delete, Get, Param, ParseArrayPipe, Patch, Post } from '@nestjs/common';
-import { ApiBody } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseArrayPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { PaymentGatewayService } from './payment_gateway.service';
 import { CreatePaymentGatewayDto } from './dto/create-payment_gateway.dto';
 import { UpdatePaymentGatewayDto } from './dto/update-payment_gateway.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthUser } from '../auth/types/auth-user.type';
 
 @Controller('payment-gateway')
 export class PaymentGatewayController {
   constructor(private readonly paymentGatewayService: PaymentGatewayService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiBody({ type: CreatePaymentGatewayDto })
+  createSingleConfig(
+    @CurrentUser() user: AuthUser,
+    @Body() createPaymentGatewayDto: CreatePaymentGatewayDto
+  ) {
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    return this.paymentGatewayService.createSingleConfig(createPaymentGatewayDto, user.tenantId);
+  }
+
+  @Post('bulk')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   @ApiBody({ type: [CreatePaymentGatewayDto] })
-  create(
+  createMultipleConfig(
+    @CurrentUser() user: AuthUser,
     @Body(new ParseArrayPipe({ items: CreatePaymentGatewayDto }))
     createPaymentGatewayDtos: CreatePaymentGatewayDto[],
   ) {
-    return this.paymentGatewayService.create(createPaymentGatewayDtos);
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    return this.paymentGatewayService.createMultipleConfig(createPaymentGatewayDtos, user.tenantId);
   }
 
   @Get()
