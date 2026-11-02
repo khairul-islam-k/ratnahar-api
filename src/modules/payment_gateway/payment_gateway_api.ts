@@ -1,67 +1,102 @@
-import axios, { type AxiosInstance } from 'axios';
+type GatewayName = 'BKASH' | 'ROCKET';
+const BKASH_SANDBOX = "https://tokenized.sandbox.bka.sh";
+const BKASH_LIVE = "https://tokenized.pay.bka.sh";
 
-export interface BkashTokenResponse {
-  id_token: string;
-  token_type?: string;
-  expires_in?: number;
-  refresh_token?: string;
-  [key: string]: unknown;
-}
 
-/** Request a bKash grant token with the merchant and application credentials. */
-export async function getBkashToken(
-  baseURL: string,
-  username: string,
-  password: string,
-  appKey: string,
-  appSecret: string,
-): Promise<BkashTokenResponse> {
-  const credentials = { username, password, appKey, appSecret };
-  for (const [name, value] of Object.entries(credentials)) {
-    if (!value.trim()) {
-      throw new Error(`bKash ${name} is required`);
-    }
-  }
+export const getTokens = async (config: any, gatewayName: string) => {
 
-  const { data } = await axios.post<BkashTokenResponse>(
-    '/tokenized/checkout/token/grant',
-    { app_key: appKey, app_secret: appSecret },
-    {
-      baseURL,
-      headers: {
+  switch (gatewayName.trim().toUpperCase()) {
+    case 'BKASH':
+      const currentUrl = getCurrentUrl('BKASH', config?.isLive);
+      const header = {
         'Content-Type': 'application/json',
-        Accept: 'application/json',
-        username,
-        password,
+        'Accept': 'application/json',
+        'username': config?.gatewayData?.username,
+        'password': config?.gatewayData?.password,
+      };
+      const body = {
+        app_key: config?.gatewayData?.appKey,
+        app_secret: config?.gatewayData?.appSecret,
+      };
+
+      return await authenticationToken(
+        `${currentUrl}/v2/tokenized-checkout/auth/grant-token`,
+        header,
+        body,
+      )
+    case 'ROCKET':
+      return '';
+    default:
+      throw new Error(`Unsupported payment gateway: ${gatewayName}`);
+  }
+}
+
+
+const authenticationToken = async (url: string, header: any, body: any) => {
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: header,
+    });
+
+    if (!response.ok) {
+      const responseBody = await response.text();
+      throw new Error(
+        `Authentication request failed (${response.status} ${response.statusText})${
+          responseBody ? `: ${responseBody}` : ''
+        }`,
+      );
+    }
+
+    const responseBody = await response.text();
+    try {
+      return JSON.parse(responseBody) as unknown;
+    } catch {
+      throw new Error(
+        `Authentication response was not valid JSON (HTTP ${response.status}): ${responseBody.slice(0, 500)}`,
+      );
+    }
+  } catch (error: unknown) {
+    throw error;
+  }
+}
+
+
+export async function callPaymentGateway() {
+  try {
+    const response = await fetch('https://jsonplaceholder.typicode.com/posts', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'foo',
+        body: 'bar',
+        userId: 1,
+      }),
+      headers: {
+        'Content-type': 'application/json; charset=UTF-8',
       },
-    },
-  );
+    });
 
-  return data;
-}
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
 
-/** Create an Axios client for bKash APIs using credentials obtained at runtime. */
-export function createBkashApiClient(
-  baseURL: string,
-  appKey: string,
-  grantToken: string,
-): AxiosInstance {
-  if (!appKey.trim()) {
-    throw new Error('bKash X-App-Key is required');
-  }
-  if (!grantToken.trim()) {
-    throw new Error('bKash grant token is required');
+    return await response.json();
+  } catch (error) {
+    console.log(error);
   }
 
-  return axios.create({
-    baseURL,
-    headers: {
-      'X-App-Key': appKey,
-      Authorization: `Bearer ${grantToken}`,
-      'Content-Type': 'application/json',
-    },
-  });
 }
+
+
+const getCurrentUrl = (gatewayName: GatewayName, isLive?: boolean) => {
+  switch (gatewayName) {
+    case 'BKASH':
+      return isLive ? BKASH_LIVE : BKASH_SANDBOX;
+    default:
+      throw new Error(`Unsupported payment gateway: ${gatewayName}`);
+  }
+};
 
 
 
