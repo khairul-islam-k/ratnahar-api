@@ -1,6 +1,9 @@
-type GatewayName = 'BKASH' | 'ROCKET';
+type GatewayName = 'BKASH' | 'ROCKET' | 'SSLCOMMERZ';
 const BKASH_SANDBOX = "https://tokenized.sandbox.bka.sh";
 const BKASH_LIVE = "https://tokenized.pay.bka.sh";
+
+const SSLCOMMERZ_LIVE = "https://securepay.sslcommerz.com";
+const SSLCOMMERZ_SANDBOX = "https://sandbox.sslcommerz.com";
 
 
 export const getTokens = async (config: any, gatewayName: string) => {
@@ -26,6 +29,10 @@ export const getTokens = async (config: any, gatewayName: string) => {
       )
     case 'ROCKET':
       return '';
+    case 'SSLCOMMERZ':
+      // SSLCommerz uses store credentials directly when creating a payment;
+      // it does not use the bKash token grant flow.
+      return null;
     default:
       throw new Error(`Unsupported payment gateway: ${gatewayName}`);
   }
@@ -97,6 +104,3 @@ const getCurrentUrl = (gatewayName: GatewayName, isLive?: boolean) => {
       throw new Error(`Unsupported payment gateway: ${gatewayName}`);
   }
 };
-
-
-

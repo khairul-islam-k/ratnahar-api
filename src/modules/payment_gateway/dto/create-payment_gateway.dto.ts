@@ -1,31 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsIn,
+  IsNotEmpty,
+  IsObject,
   IsOptional,
-  IsString,
   IsUUID,
-  ValidateNested,
 } from 'class-validator';
-
-export class PaymentGatewayCredentialsDto {
-  @ApiProperty({ example: 'merchant-user' })
-  @IsString()
-  username!: string;
-
-  @ApiProperty({ example: 'your-password' })
-  @IsString()
-  password!: string;
-
-  @ApiProperty({ example: 'your-app-key' })
-  @IsString()
-  appKey!: string;
-
-  @ApiProperty({ example: 'your-app-secret' })
-  @IsString()
-  appSecret!: string;
-}
 
 export class CreatePaymentGatewayDto {
 
@@ -43,8 +24,23 @@ export class CreatePaymentGatewayDto {
   @IsIn(['active', 'inactive'])
   status?: 'active' | 'inactive';
 
-  @ApiProperty({ type: PaymentGatewayCredentialsDto })
-  @ValidateNested()
-  @Type(() => PaymentGatewayCredentialsDto)
-  gatewayData!: PaymentGatewayCredentialsDto;
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+    examples: [
+      {
+        username: 'merchant-user',
+        password: 'your-password',
+        appKey: 'your-app-key',
+        appSecret: 'your-app-secret',
+      },
+      {
+        storeId: 'merchant-user',
+        storePasswd: 'your-password'
+      },
+    ],
+  })
+  @IsObject()
+  @IsNotEmpty()
+  gatewayData!: Object;
 }

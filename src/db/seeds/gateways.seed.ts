@@ -14,6 +14,7 @@ const db = drizzle(pool);
 
 const gateways = [
   { name: 'BKASH', slug: 'bkash' },
+  { name: 'SSLCOMMERZ', slug: 'sslcommerz' },
 ];
 
 async function seedGateways() {

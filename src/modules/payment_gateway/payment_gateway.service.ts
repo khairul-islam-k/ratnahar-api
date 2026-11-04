@@ -98,6 +98,12 @@ export class PaymentGatewayService {
       throw new BadRequestException('Payment gateway was not found');
     }
 
+    // SSLCommerz authenticates payment requests with storeId/storePasswd
+    // directly, so it does not return bKash-style access/refresh tokens here.
+    if (gateway.name.trim().toUpperCase() === 'SSLCOMMERZ') {
+      return config.gatewayData;
+    }
+
     let tokens: unknown;
     try {
       tokens = await getTokens(config, gateway.name);
