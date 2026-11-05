@@ -13,6 +13,7 @@ import {
 } from '@nestjs/swagger';
 import { PaymentGatewayService } from './payment_gateway.service';
 import { CreatePaymentGatewayDto } from './dto/create-payment_gateway.dto';
+import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentGatewayDto } from './dto/update-payment_gateway.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -22,6 +23,20 @@ import type { AuthUser } from '../auth/types/auth-user.type';
 @ApiTags('Payment Gateways')
 export class PaymentGatewayController {
   constructor(private readonly paymentGatewayService: PaymentGatewayService) {}
+
+  @Post('create-payment')
+  @ApiOperation({ summary: 'Create a payment for a package' })
+  @ApiCreatedResponse({ description: 'Payment request prepared successfully' })
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiBody({ type: CreatePaymentDto })
+  createPayment(
+    @CurrentUser() user: AuthUser,
+    @Body() createPaymentDto: CreatePaymentDto,
+  ) {
+    if (!user.tenantId) throw new BadRequestException('tenantId is required');
+    return this.paymentGatewayService.createPayment(createPaymentDto, user.tenantId);
+  }
 
   @Post()
   @ApiOperation({ summary: 'Create or update one tenant payment gateway config' })

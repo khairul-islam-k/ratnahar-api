@@ -4,25 +4,28 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { CreatePaymentGatewayDto } from './dto/create-payment_gateway.dto';
+import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentGatewayDto } from './dto/update-payment_gateway.dto';
-import { encript } from 'src/common/encode_decode/encode_decode';
+import { decode, encript } from 'src/common/encode_decode/encode_decode';
 import { DATABASE_CONNECTION } from 'src/database/database.provider';
 import type { Database } from 'src/database/database.types';
 import { paymentGateways, tenantPaymentGatewayConfigs } from 'src/database/schema/payment-gateway';
+import { packages } from 'src/database/schema/subscription';
 import {
   apiResponse,
   paginatedResponse,
 } from 'src/common/interceptors/response.interceptor';
-import { asc, count, eq, sql } from 'drizzle-orm';
-import { getTokens } from './payment_gateway_api';
+import { and, asc, count, eq, sql } from 'drizzle-orm';
+import { createPaymentApi, getTokens } from './payment_gateway_api';
 
 @Injectable()
 export class PaymentGatewayService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: Database,
-  ) { }
+  ) {}
   async createSingleConfig(config: CreatePaymentGatewayDto, tenantId: string) {
     const configData = await this.commonConfig(config);
 
@@ -87,6 +90,99 @@ export class PaymentGatewayService {
     return apiResponse(rows, 'Payment gateway configs created successfully');
   }
 
+  async createPayment(input: CreatePaymentDto, tenantId: string) {
+    const [packageRow] = await this.db
+      .select({
+        id: packages.id,
+        name: packages.name,
+        pricingType: packages.pricingType,
+        monthlyPrice: packages.monthlyPrice,
+        yearlyPrice: packages.yearlyPrice,
+        status: packages.status,
+      })
+      .from(packages)
+      .where(eq(packages.id, input.packageId))
+      .limit(1);
+
+    if (!packageRow) {
+      throw new BadRequestException('Package was not found');
+    }
+    if (packageRow.status !== 'active') {
+      throw new BadRequestException('This package is not available for purchase');
+    }
+
+    const amount = input.billingCycle === 'monthly'
+      ? packageRow.monthlyPrice
+      : packageRow.yearlyPrice;
+
+    if (amount === null) {
+      throw new BadRequestException(
+        `This package does not have a ${input.billingCycle} price`,
+      );
+    }
+
+    const gatewayConfig = await this.getConfig(input.paymentGatewayId, tenantId);
+
+    const payload = {
+      payerReference: tenantId,
+      callbackURL: input.callbackURL,
+      amount,
+      currency: 'BDT',
+      intent: 'sale',
+      merchantInvoiceNumber: `PAY-${randomUUID()}`,
+    };
+
+    const result = await createPaymentApi(gatewayConfig, payload);
+
+    return apiResponse(
+      result,
+      'Payment created successfully',
+    );
+  }
+
+  private async getConfig(paymentGatewayId: string, tenantId: string) {
+    const [row] = await this.db
+      .select({
+        gatewayName: paymentGateways.name,
+        gatewaySlug: paymentGateways.slug,
+        gatewayData: tenantPaymentGatewayConfigs.gatewayData,
+        isLive: tenantPaymentGatewayConfigs.isLive,
+        status: tenantPaymentGatewayConfigs.status,
+      })
+      .from(tenantPaymentGatewayConfigs)
+      .innerJoin(
+        paymentGateways,
+        eq(tenantPaymentGatewayConfigs.paymentGatewayId, paymentGateways.id),
+      )
+      .where(
+        and(
+          eq(tenantPaymentGatewayConfigs.tenantId, tenantId),
+          eq(tenantPaymentGatewayConfigs.paymentGatewayId, paymentGatewayId),
+        ),
+      )
+      .limit(1);
+
+    if (!row || row.status !== 'active') {
+      throw new BadRequestException(
+        'Active payment gateway configuration was not found for this tenant',
+      );
+    }
+
+    if (typeof row.gatewayData !== 'string') {
+      throw new BadGatewayException('Payment gateway configuration is invalid');
+    }
+
+    try {
+      return {
+        ...row,
+        gatewayData: decode<Record<string, unknown>>(row.gatewayData),
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new BadGatewayException(`Could not read payment gateway configuration: ${message}`);
+    }
+  }
+
   private async commonConfig(config: CreatePaymentGatewayDto) {
     const [gateway] = await this.db
       .select({ name: paymentGateways.name })
@@ -98,8 +194,6 @@ export class PaymentGatewayService {
       throw new BadRequestException('Payment gateway was not found');
     }
 
-    // SSLCommerz authenticates payment requests with storeId/storePasswd
-    // directly, so it does not return bKash-style access/refresh tokens here.
     if (gateway.name.trim().toUpperCase() === 'SSLCOMMERZ') {
       return config.gatewayData;
     }

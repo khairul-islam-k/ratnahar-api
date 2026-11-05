@@ -1,3 +1,5 @@
+import { BadGatewayException } from '@nestjs/common';
+
 type GatewayName = 'BKASH' | 'ROCKET' | 'SSLCOMMERZ';
 const BKASH_SANDBOX = "https://tokenized.sandbox.bka.sh";
 const BKASH_LIVE = "https://tokenized.pay.bka.sh";
@@ -38,6 +40,26 @@ export const getTokens = async (config: any, gatewayName: string) => {
   }
 }
 
+export const createPaymentApi = async (config: any, payload: any) => {
+  switch (config?.gatewayName?.trim().toUpperCase()) {
+    case 'BKASH': {
+      const baseUrl = getCurrentUrl('BKASH', config?.isLive);
+
+      const header = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-App-Key': config?.gatewayData?.appKey,
+        Authorization: config?.gatewayData?.access_token,
+      };
+
+      const res = await callPaymentGateway(header, payload, `${baseUrl}/v2/tokenized-checkout/payment/create`);
+      return res;
+
+    }
+    default:
+      throw new Error(`Unsupported payment gateway: ${config?.gatewayName}`);
+  }
+}
 
 const authenticationToken = async (url: string, header: any, body: any) => {
   try {
@@ -50,8 +72,7 @@ const authenticationToken = async (url: string, header: any, body: any) => {
     if (!response.ok) {
       const responseBody = await response.text();
       throw new Error(
-        `Authentication request failed (${response.status} ${response.statusText})${
-          responseBody ? `: ${responseBody}` : ''
+        `Authentication request failed (${response.status} ${response.statusText})${responseBody ? `: ${responseBody}` : ''
         }`,
       );
     }
@@ -70,29 +91,46 @@ const authenticationToken = async (url: string, header: any, body: any) => {
 }
 
 
-export async function callPaymentGateway() {
+export async function callPaymentGateway(header: any, payload: any, url: string) {
   try {
-    const response = await fetch('https://jsonplaceholder.typicode.com/posts', {
+    const response = await fetch(url, {
       method: 'POST',
-      body: JSON.stringify({
-        title: 'foo',
-        body: 'bar',
-        userId: 1,
-      }),
-      headers: {
-        'Content-type': 'application/json; charset=UTF-8',
-      },
+      body: JSON.stringify(payload),
+      headers: header,
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
+    const responseBody = await response.text();
+    let result: unknown;
+    try {
+      result = responseBody ? JSON.parse(responseBody) as unknown : null;
+    } catch {
+      throw new Error(
+        `Payment gateway returned invalid JSON (HTTP ${response.status}): ${responseBody.slice(0, 500)}`,
+      );
     }
 
-    return await response.json();
-  } catch (error) {
-    console.log(error);
-  }
+    if (!response.ok) {
+      const gatewayMessage =
+        typeof result === 'object' && result !== null && 'message' in result &&
+        typeof result.message === 'string'
+          ? result.message
+          : response.statusText;
 
+      if (response.status === 401 && /token has expired/i.test(gatewayMessage)) {
+        throw new BadGatewayException(
+          'bKash access token expired. Refresh the gateway token with the saved refresh token, then retry the payment.',
+        );
+      }
+
+      throw new BadGatewayException(
+        `Payment gateway request failed (${response.status} ${response.statusText}): ${gatewayMessage}`,
+      );
+    }
+
+    return result;
+  } catch (error) {
+    throw error;
+  }
 }
 
 
