@@ -18,14 +18,15 @@ import {
   paginatedResponse,
 } from 'src/common/interceptors/response.interceptor';
 import { and, asc, count, eq, sql } from 'drizzle-orm';
-import { createPaymentApi, getTokens } from './payment_gateway_api';
+import { createPaymentApi, getTokens, refreshToken } from './payment_gateway_api';
+import { systemUser, SystemUserType } from 'src/database/schema/system';
 
 @Injectable()
 export class PaymentGatewayService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: Database,
-  ) {}
+  ) { }
   async createSingleConfig(config: CreatePaymentGatewayDto, tenantId: string) {
     const configData = await this.commonConfig(config);
 
@@ -63,11 +64,11 @@ export class PaymentGatewayService {
 
     const values = await Promise.all(
       createPaymentGatewayDtos.map(async (config) => ({
-          configOwner: tenantId,
-          paymentGatewayId: config.paymentGatewayId,
-          gatewayData: encript(await this.commonConfig(config)),
-          isLive: config.isLive ?? false,
-          status: config.status ?? 'active',
+        configOwner: tenantId,
+        paymentGatewayId: config.paymentGatewayId,
+        gatewayData: encript(await this.commonConfig(config)),
+        isLive: config.isLive ?? false,
+        status: config.status ?? 'active',
       })),
     );
 
@@ -121,7 +122,13 @@ export class PaymentGatewayService {
       );
     }
 
-    const gatewayConfig = await this.getConfig(input.paymentGatewayId, tenantId);
+    const [ user ] = await this.db
+      .select({ id: systemUser.id })
+      .from(systemUser)
+      .where(eq(systemUser.type, SystemUserType.ADMIN))
+      .limit(1);
+
+    const gatewayConfig = await this.getConfig(input.paymentGatewayId, user.id);
 
     const payload = {
       payerReference: tenantId,
@@ -132,7 +139,19 @@ export class PaymentGatewayService {
       merchantInvoiceNumber: `PAY-${randomUUID()}`,
     };
 
-    const result = await createPaymentApi(gatewayConfig, payload);
+    let result: unknown;
+    try {
+      result = await createPaymentApi(gatewayConfig, payload);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.toLowerCase().includes('access token expired')) {
+        throw error;
+      }
+
+      const accessToken = await this.newAccessToken(gatewayConfig);
+      gatewayConfig.gatewayData.access_token = accessToken;
+      result = await createPaymentApi(gatewayConfig, payload);
+    }
 
     return apiResponse(
       result,
@@ -140,9 +159,50 @@ export class PaymentGatewayService {
     );
   }
 
+  private async newAccessToken(config: any) {
+    const resultToken = await refreshToken(config);
+
+    if (
+      typeof resultToken !== 'object' ||
+      resultToken === null ||
+      !('id_token' in resultToken) ||
+      typeof resultToken.id_token !== 'string' ||
+      !('refresh_token' in resultToken) ||
+      typeof resultToken.refresh_token !== 'string'
+    ) {
+      throw new BadGatewayException('Payment gateway returned an invalid token response');
+    }
+
+    const configData = {
+      ...config.gatewayData,
+      access_token: resultToken.id_token,
+      refresh_token: resultToken.refresh_token,
+    };
+
+    const [updatedConfig] = await this.db
+      .update(paymentGatewayConfigs)
+      .set({ gatewayData: encript(configData) })
+      .where(
+        and(
+          eq(paymentGatewayConfigs.configOwner, config.configOwner),
+          eq(paymentGatewayConfigs.paymentGatewayId, config.paymentGatewayId),
+        ),
+      )
+      .returning({ id: paymentGatewayConfigs.id });
+
+    if (!updatedConfig) {
+      throw new BadGatewayException('Payment gateway configuration could not be updated');
+    }
+
+    return resultToken.id_token;
+
+  }
+
   private async getConfig(paymentGatewayId: string, tenantId: string) {
     const [row] = await this.db
       .select({
+        paymentGatewayId: paymentGateways.id,
+        configOwner: paymentGatewayConfigs.configOwner,
         gatewayName: paymentGateways.name,
         gatewaySlug: paymentGateways.slug,
         gatewayData: paymentGatewayConfigs.gatewayData,

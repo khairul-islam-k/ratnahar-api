@@ -1,4 +1,5 @@
 import { BadGatewayException } from '@nestjs/common';
+import { config } from 'process';
 
 type GatewayName = 'BKASH' | 'ROCKET' | 'SSLCOMMERZ';
 const BKASH_SANDBOX = "https://tokenized.sandbox.bka.sh";
@@ -32,11 +33,39 @@ export const getTokens = async (config: any, gatewayName: string) => {
     case 'ROCKET':
       return '';
     case 'SSLCOMMERZ':
-      // SSLCommerz uses store credentials directly when creating a payment;
-      // it does not use the bKash token grant flow.
       return null;
     default:
       throw new Error(`Unsupported payment gateway: ${gatewayName}`);
+  }
+}
+
+export const refreshToken = async (config: any) => {
+  switch (config?.gatewayName?.trim().toUpperCase()) {
+    case 'BKASH':
+      const currentUrl = getCurrentUrl('BKASH', config?.isLive);
+      const header = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'username': config?.gatewayData?.username,
+        'password': config?.gatewayData?.password,
+      };
+      const body = {
+        app_key: config?.gatewayData?.appKey,
+        app_secret: config?.gatewayData?.appSecret,
+        refresh_token: config?.gatewayData?.refresh_token,
+      };
+
+      return await refreshTokenApi(
+        `${currentUrl}/v2/tokenized-checkout/auth/refresh-token`,
+        header,
+        body,
+      )
+    case 'ROCKET':
+      return '';
+    case 'SSLCOMMERZ':
+      return null;
+    default:
+      throw new Error(`Unsupported payment gateway`);
   }
 }
 
@@ -90,6 +119,16 @@ const authenticationToken = async (url: string, header: any, body: any) => {
   }
 }
 
+const refreshTokenApi = async (url: string, header: any, body: any) => {
+  const response = await fetch(url, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: header,
+  });
+
+  return response.json();
+}
+
 
 export async function callPaymentGateway(header: any, payload: any, url: string) {
   try {
@@ -112,7 +151,7 @@ export async function callPaymentGateway(header: any, payload: any, url: string)
     if (!response.ok) {
       const gatewayMessage =
         typeof result === 'object' && result !== null && 'message' in result &&
-        typeof result.message === 'string'
+          typeof result.message === 'string'
           ? result.message
           : response.statusText;
 
