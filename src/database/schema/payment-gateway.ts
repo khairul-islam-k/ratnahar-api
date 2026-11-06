@@ -26,11 +26,11 @@ export const tenantPaymentGatewayConfigStatusEnum = pgEnum(
   ['active', 'inactive'],
 );
 
-export const tenantPaymentGatewayConfigs = pgTable(
-  'tenant_payment_gateway_configs',
+export const paymentGatewayConfigs = pgTable(
+  'payment_gateway_configs',
   {
     id: uuid('id').primaryKey().defaultRandom().notNull(),
-    tenantId: uuid('tenant_id')
+    configOwner: uuid('config_owner')
       .notNull()
       .references(() => systemUser.id, { onDelete: 'cascade' }),
     paymentGatewayId: uuid('payment_gateway_id')
@@ -44,7 +44,7 @@ export const tenantPaymentGatewayConfigs = pgTable(
   },
   (table) => [
     uniqueIndex('tenant_payment_gateway_configs_tenant_gateway_uidx').on(
-      table.tenantId,
+      table.configOwner,
       table.paymentGatewayId,
     ),
     index('tenant_payment_gateway_configs_status_idx').on(table.status),
@@ -53,18 +53,18 @@ export const tenantPaymentGatewayConfigs = pgTable(
 
 export const paymentGatewaysRelations = relations(
   paymentGateways,
-  ({ many }) => ({ configs: many(tenantPaymentGatewayConfigs) }),
+  ({ many }) => ({ configs: many(paymentGatewayConfigs) }),
 );
 
-export const tenantPaymentGatewayConfigsRelations = relations(
-  tenantPaymentGatewayConfigs,
+export const paymentGatewayConfigsRelations = relations(
+  paymentGatewayConfigs,
   ({ one }) => ({
-    tenant: one(systemUser, {
-      fields: [tenantPaymentGatewayConfigs.tenantId],
+    owner: one(systemUser, {
+      fields: [paymentGatewayConfigs.configOwner],
       references: [systemUser.id],
     }),
     paymentGateway: one(paymentGateways, {
-      fields: [tenantPaymentGatewayConfigs.paymentGatewayId],
+      fields: [paymentGatewayConfigs.paymentGatewayId],
       references: [paymentGateways.id],
     }),
   }),

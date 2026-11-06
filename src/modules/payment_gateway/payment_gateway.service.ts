@@ -11,7 +11,7 @@ import { UpdatePaymentGatewayDto } from './dto/update-payment_gateway.dto';
 import { decode, encript } from 'src/common/encode_decode/encode_decode';
 import { DATABASE_CONNECTION } from 'src/database/database.provider';
 import type { Database } from 'src/database/database.types';
-import { paymentGateways, tenantPaymentGatewayConfigs } from 'src/database/schema/payment-gateway';
+import { paymentGatewayConfigs, paymentGateways } from 'src/database/schema/payment-gateway';
 import { packages } from 'src/database/schema/subscription';
 import {
   apiResponse,
@@ -30,9 +30,9 @@ export class PaymentGatewayService {
     const configData = await this.commonConfig(config);
 
     const [row] = await this.db
-      .insert(tenantPaymentGatewayConfigs)
+      .insert(paymentGatewayConfigs)
       .values({
-        tenantId,
+        configOwner: tenantId,
         paymentGatewayId: config.paymentGatewayId,
         gatewayData: encript(configData),
         isLive: config.isLive ?? false,
@@ -40,8 +40,8 @@ export class PaymentGatewayService {
       })
       .onConflictDoUpdate({
         target: [
-          tenantPaymentGatewayConfigs.tenantId,
-          tenantPaymentGatewayConfigs.paymentGatewayId,
+          paymentGatewayConfigs.configOwner,
+          paymentGatewayConfigs.paymentGatewayId,
         ],
         set: {
           gatewayData: encript(configData),
@@ -63,7 +63,7 @@ export class PaymentGatewayService {
 
     const values = await Promise.all(
       createPaymentGatewayDtos.map(async (config) => ({
-          tenantId,
+          configOwner: tenantId,
           paymentGatewayId: config.paymentGatewayId,
           gatewayData: encript(await this.commonConfig(config)),
           isLive: config.isLive ?? false,
@@ -72,12 +72,12 @@ export class PaymentGatewayService {
     );
 
     const rows = await this.db
-      .insert(tenantPaymentGatewayConfigs)
+      .insert(paymentGatewayConfigs)
       .values(values)
       .onConflictDoUpdate({
         target: [
-          tenantPaymentGatewayConfigs.tenantId,
-          tenantPaymentGatewayConfigs.paymentGatewayId,
+          paymentGatewayConfigs.configOwner,
+          paymentGatewayConfigs.paymentGatewayId,
         ],
         set: {
           gatewayData: sql`excluded.gateway_data`,
@@ -145,19 +145,19 @@ export class PaymentGatewayService {
       .select({
         gatewayName: paymentGateways.name,
         gatewaySlug: paymentGateways.slug,
-        gatewayData: tenantPaymentGatewayConfigs.gatewayData,
-        isLive: tenantPaymentGatewayConfigs.isLive,
-        status: tenantPaymentGatewayConfigs.status,
+        gatewayData: paymentGatewayConfigs.gatewayData,
+        isLive: paymentGatewayConfigs.isLive,
+        status: paymentGatewayConfigs.status,
       })
-      .from(tenantPaymentGatewayConfigs)
+      .from(paymentGatewayConfigs)
       .innerJoin(
         paymentGateways,
-        eq(tenantPaymentGatewayConfigs.paymentGatewayId, paymentGateways.id),
+        eq(paymentGatewayConfigs.paymentGatewayId, paymentGateways.id),
       )
       .where(
         and(
-          eq(tenantPaymentGatewayConfigs.tenantId, tenantId),
-          eq(tenantPaymentGatewayConfigs.paymentGatewayId, paymentGatewayId),
+          eq(paymentGatewayConfigs.configOwner, tenantId),
+          eq(paymentGatewayConfigs.paymentGatewayId, paymentGatewayId),
         ),
       )
       .limit(1);
@@ -226,24 +226,24 @@ export class PaymentGatewayService {
   }
 
   async findAll(tenantId: string, page: number, limit: number) {
-    const where = eq(tenantPaymentGatewayConfigs.tenantId, tenantId);
+    const where = eq(paymentGatewayConfigs.configOwner, tenantId);
     const offset = (page - 1) * limit;
 
     const [rows, [totalResult]] = await Promise.all([
       this.db
         .select({
-          id: tenantPaymentGatewayConfigs.id,
-          tenantId: tenantPaymentGatewayConfigs.tenantId,
+          id: paymentGatewayConfigs.id,
+          tenantId: paymentGatewayConfigs.configOwner,
           paymentGatewayId: paymentGateways.id,
           gatewayName: paymentGateways.name,
           gatewaySlug: paymentGateways.slug,
-          isLive: tenantPaymentGatewayConfigs.isLive,
-          status: tenantPaymentGatewayConfigs.status,
+          isLive: paymentGatewayConfigs.isLive,
+          status: paymentGatewayConfigs.status,
         })
-        .from(tenantPaymentGatewayConfigs)
+        .from(paymentGatewayConfigs)
         .innerJoin(
           paymentGateways,
-          eq(tenantPaymentGatewayConfigs.paymentGatewayId, paymentGateways.id),
+          eq(paymentGatewayConfigs.paymentGatewayId, paymentGateways.id),
         )
         .where(where)
         .orderBy(asc(paymentGateways.name))
@@ -251,7 +251,7 @@ export class PaymentGatewayService {
         .offset(offset),
       this.db
         .select({ total: count() })
-        .from(tenantPaymentGatewayConfigs)
+        .from(paymentGatewayConfigs)
         .where(where),
     ]);
 

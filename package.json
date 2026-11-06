@@ -14,6 +14,7 @@
     "seed:admin": "tsx src/db/seeds/admin.seed.ts",
     "seed:gateways": "tsx src/db/seeds/gateways.seed.ts",
     "seed:permissions": "tsx src/db/seeds/seed-permissions.ts",
+    "seed:all": "concurrently \"npm run seed:admin\" \"npm run seed:gateways\" \"npm run seed:permissions\"",
     "delete:all": "tsx src/db/seeds/delete-all.seed.ts",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
